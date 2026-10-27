@@ -5,5 +5,6 @@
   <Project Path="Azon.DAL/Azon.DAL.csproj" />
   <Project Path="Azon.Domain/Azon.Domain.csproj" />
   <Project Path="Azon.Shared/Azon.Shared.csproj" />
+  <Project Path="Azon.TelegramBot/Azon.TelegramBot.csproj" Id="aaec11ab-8456-4d0e-a6a0-8371c6086b75" />
   <Project Path="Azon/Azon.csproj" />
 </Solution>

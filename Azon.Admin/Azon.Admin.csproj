@@ -10,4 +10,14 @@
     <Folder Include="Models\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Azon.BLL\Azon.BLL.csproj" />
+    <ProjectReference Include="..\Azon.Shared\Azon.Shared.csproj" />
+  </ItemGroup>
+
 </Project>
