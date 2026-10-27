@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="Azon.Admin/Azon.Admin.csproj" />
+  <Project Path="Azon.API/Azon.API.csproj" />
+  <Project Path="Azon.BLL/Azon.BLL.csproj" />
+  <Project Path="Azon.DAL/Azon.DAL.csproj" />
+  <Project Path="Azon.Domain/Azon.Domain.csproj" />
+  <Project Path="Azon.Shared/Azon.Shared.csproj" />
+  <Project Path="Azon/Azon.csproj" />
+</Solution>
