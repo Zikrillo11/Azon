@@ -1,10 +1,10 @@
-﻿namespace Azon.Shared.DTOs.UserPreferenceDTOs;
+﻿namespace Azon.Shared.DTOs.UserPreferenceDTOs; 
 
 public class UserPreferenceForCreateDto
 {
     public long UserId { get; set; }
     public long CityId { get; set; }
-    public bool NotificationsEnabled { get; set; } = true;
+    public bool NotificationsEnabled { get; set; } = true; 
     public bool FajrNotificationEnabled { get; set; } = true;
     public bool DhuhrNotificationEnabled { get; set; } = true;
     public bool AsrNotificationEnabled { get; set; } = true;
