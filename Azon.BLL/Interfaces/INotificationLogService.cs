@@ -14,7 +14,7 @@ public interface INotificationLogService
 
     Task<NotificationLogForResultDto> CreateAsync(
         NotificationLogForCreateDto dto);
-
+     
     Task<NotificationLogForResultDto?> UpdateAsync(
         NotificationLogForUpdateDto dto);
 
