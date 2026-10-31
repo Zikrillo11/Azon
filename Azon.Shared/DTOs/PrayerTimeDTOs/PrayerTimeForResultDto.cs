@@ -1,6 +1,6 @@
 ﻿namespace Azon.Shared.DTOs.PrayerTimeDTOs;
 
-public class PrayerTimeForShortResultDto
+public class PrayerTimeForResultDto
 {
     public long Id { get; set; }
     public DateOnly PrayerDate { get; set; }

@@ -1,6 +1,6 @@
 ﻿namespace Azon.Shared.DTOs.UserPreferenceDTOs;
 
-public class UserPreferenceForCreateDto
+public class PrayerTimeForShortResultDto
 {
     public long UserId { get; set; }
     public long CityId { get; set; }
