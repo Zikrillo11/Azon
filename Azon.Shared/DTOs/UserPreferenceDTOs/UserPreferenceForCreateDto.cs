@@ -1,4 +1,4 @@
-﻿namespace Azon.Shared.DTOs.UserPreferenceDTOs; 
+﻿namespace Azon.Shared.DTOs.UserPreferenceDTOs;
 
 public class UserPreferenceForCreateDto
 {
