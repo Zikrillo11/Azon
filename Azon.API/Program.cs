@@ -1,4 +1,4 @@
-
+using Azon.BLL;
 using Azon.DAL.DAL;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +12,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Services
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+builder.Services.AddBusinessLogic();
 
 var app = builder.Build();
 
