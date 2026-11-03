@@ -28,6 +28,7 @@ public static class DependencyInjection
         services.AddScoped<IPrayerTimeService, PrayerTimeService>();
         services.AddScoped<IUserPreferenceService, UserPreferenceService>();
         services.AddScoped<INotificationLogService, NotificationLogService>();
+        services.AddScoped<IJwtService, JwtService>();
 
         // AutoMapper
         services.AddAutoMapper(
