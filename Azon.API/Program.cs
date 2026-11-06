@@ -1,37 +1,41 @@
 
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
+
 using Azon.BLL;
 using Azon.DAL.DAL;
 using Azon.Shared.Settings;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ========================================  
-// 1. JWT SETTINGS
+// ========================================
+// CONFIGURATION
 // ========================================
 
 var jwtSettings = builder.Configuration
     .GetSection("JwtSettings")
     .Get<JwtSettings>()
     ?? throw new InvalidOperationException(
-        "JWT settings not found.");
+        "JwtSettings configuration is missing.");
 
 if (string.IsNullOrWhiteSpace(jwtSettings.SecretKey) ||
     Encoding.UTF8.GetByteCount(jwtSettings.SecretKey) < 32)
 {
     throw new InvalidOperationException(
-        "Invalid JWT SecretKey. Minimum 32 bytes required.");
+        "JWT SecretKey must be at least 32 bytes.");
 }
 
 if (string.IsNullOrWhiteSpace(jwtSettings.Issuer) ||
     string.IsNullOrWhiteSpace(jwtSettings.Audience))
 {
     throw new InvalidOperationException(
-        "Invalid JWT Issuer or Audience.");
+        "JWT Issuer and Audience are required.");
 }
 
 if (jwtSettings.AccessTokenExpirationMinutes is < 1 or > 60)
@@ -43,81 +47,125 @@ if (jwtSettings.AccessTokenExpirationMinutes is < 1 or > 60)
 builder.Services.Configure<JwtSettings>(
     builder.Configuration.GetSection("JwtSettings"));
 
+builder.Services.Configure<TelegramSettings>(
+    builder.Configuration.GetSection("TelegramSettings"));
+
 // ========================================
-// 2. DATABASE
+// DATABASE
 // ========================================
+
+var connectionString = builder.Configuration
+    .GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException(
+        "Database connection string is missing.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString(
-            "DefaultConnection")));
+{
+    options.UseNpgsql(connectionString);
+});
 
 // ========================================
-// 3. AUTHENTICATION
+// JWT AUTHENTICATION
 // ========================================
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme =
+            JwtBearerDefaults.AuthenticationScheme;
+
+        options.DefaultChallengeScheme =
+            JwtBearerDefaults.AuthenticationScheme;
+    })
     .AddJwtBearer(options =>
     {
-        options.TokenValidationParameters =
-            new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtSettings.Issuer,
 
-                IssuerSigningKey = new SymmetricSecurityKey(
-                    Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
+            ValidateAudience = true,
+            ValidAudience = jwtSettings.Audience,
 
-                ValidateIssuer = true,
-                ValidIssuer = jwtSettings.Issuer,
+            ValidateLifetime = true,
 
-                ValidateAudience = true,
-                ValidAudience = jwtSettings.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtSettings.SecretKey)),
 
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromSeconds(30),
+            ClockSkew = TimeSpan.FromSeconds(30),
 
-                NameClaimType = ClaimTypes.Name,
-                RoleClaimType = ClaimTypes.Role
-            };
+            NameClaimType = ClaimTypes.Name,
+            RoleClaimType = ClaimTypes.Role
+        };
     });
-
-// ========================================
-// 4. AUTHORIZATION
-// ========================================
 
 builder.Services.AddAuthorization();
 
 // ========================================
-// 5. CONTROLLERS
+// RATE LIMITING
 // ========================================
 
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode =
+        StatusCodes.Status429TooManyRequests;
+
+    options.AddPolicy("auth", httpContext =>
+    {
+        var ipAddress = httpContext.Connection
+            .RemoteIpAddress?.ToString() ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ipAddress,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType =
+            "application/json";
+
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new
+            {
+                Success = false,
+                Message = "Too many requests. Please try again later."
+            },
+            cancellationToken);
+    };
+});
 
 // ========================================
-// 6. SWAGGER
+// BUSINESS LOGIC
 // ========================================
-
-builder.Services.AddSwaggerGen();
-
-// ========================================
-// 7. BUSINESS LOGIC
-// ========================================
-
-builder.Services.Configure<TelegramSettings>(
-    builder.Configuration.GetSection("TelegramSettings"));
 
 builder.Services.AddBusinessLogic();
 
 // ========================================
-// 8. BUILD
+// API + SWAGGER
+// ========================================
+
+builder.Services.AddControllers();
+
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen();
+
+// ========================================
+// BUILD APPLICATION
 // ========================================
 
 var app = builder.Build();
 
 // ========================================
-// 9. MIDDLEWARE
+// MIDDLEWARE
 // ========================================
 
 if (app.Environment.IsDevelopment())
@@ -128,17 +176,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseRouting();
+
+app.UseRateLimiter();
+
 app.UseAuthentication();
+
 app.UseAuthorization();
 
 // ========================================
-// 10. CONTROLLERS
+// ENDPOINTS
 // ========================================
 
 app.MapControllers();
-
-// ========================================
-// 11. RUN
-// ========================================
 
 app.Run();
