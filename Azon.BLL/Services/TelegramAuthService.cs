@@ -1,8 +1,9 @@
 ﻿
 using Azon.BLL.Interfaces;
 using Azon.DAL.Repositories.Interfaces;
-using Azon.Domain.Entities;
 using Azon.Shared.DTOs.AuthDTOs;
+using Azon.Shared.Settings;
+using Microsoft.Extensions.Options;
 
 namespace Azon.BLL.Services;
 
@@ -11,15 +12,18 @@ public sealed class TelegramAuthService : ITelegramAuthService
     private readonly TelegramInitDataValidator _validator;
     private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
+    private readonly JwtSettings _jwtSettings;
 
     public TelegramAuthService(
         TelegramInitDataValidator validator,
         IUserRepository userRepository,
-        IJwtService jwtService)
+        IJwtService jwtService,
+        IOptions<JwtSettings> jwtOptions)
     {
         _validator = validator;
         _userRepository = userRepository;
         _jwtService = jwtService;
+        _jwtSettings = jwtOptions.Value;
     }
 
     public async Task<AuthTokenResultDto> AuthenticateAsync(
@@ -53,7 +57,8 @@ public sealed class TelegramAuthService : ITelegramAuthService
         {
             AccessToken = accessToken,
             TokenType = "Bearer",
-            ExpiresInSeconds = 15 * 60
+            ExpiresInSeconds =
+                _jwtSettings.AccessTokenExpirationMinutes * 60
         };
     }
 }
