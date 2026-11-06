@@ -105,6 +105,9 @@ builder.Services.AddSwaggerGen();
 // 7. BUSINESS LOGIC
 // ========================================
 
+builder.Services.Configure<TelegramSettings>(
+    builder.Configuration.GetSection("TelegramSettings"));
+
 builder.Services.AddBusinessLogic();
 
 // ========================================

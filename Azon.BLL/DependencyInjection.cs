@@ -1,8 +1,9 @@
-﻿using Azon.BLL.Interfaces;
+﻿
+using Azon.BLL.Interfaces;
 using Azon.BLL.Mappings;
 using Azon.BLL.Services;
-using Azon.DAL.Repositories.Interfaces;
 using Azon.DAL.Repositories.Implementations;
+using Azon.DAL.Repositories.Interfaces;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,7 +29,12 @@ public static class DependencyInjection
         services.AddScoped<IPrayerTimeService, PrayerTimeService>();
         services.AddScoped<IUserPreferenceService, UserPreferenceService>();
         services.AddScoped<INotificationLogService, NotificationLogService>();
+
+        // JWT
         services.AddScoped<IJwtService, JwtService>();
+
+        // Telegram Authentication
+        services.AddScoped<TelegramInitDataValidator>();
 
         // AutoMapper
         services.AddAutoMapper(
