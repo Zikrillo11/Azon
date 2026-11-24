@@ -4,32 +4,39 @@ using Azon.BLL.Interfaces;
 using Azon.DAL.Repositories.Interfaces;
 using Azon.Domain.Entities;
 using Azon.Shared.DTOs.UserPreferenceDTOs;
-using FluentValidation;
 
 namespace Azon.BLL.Services;
 
-public class UserPreferenceService : IUserPreferenceService
+public sealed class UserPreferenceService : IUserPreferenceService
 {
-    private readonly IUserPreferenceRepository _preferenceRepository;
+    private readonly IUserPreferenceRepository _repository;
+    private readonly IUserRepository _userRepository;
+    private readonly ICityRepository _cityRepository;
     private readonly IMapper _mapper;
-    private readonly IValidator<UserPreferenceForCreateDto> _createValidator;
-    private readonly IValidator<UserPreferenceForUpdateDto> _updateValidator;
 
     public UserPreferenceService(
-        IUserPreferenceRepository preferenceRepository,
-        IMapper mapper,
-        IValidator<UserPreferenceForCreateDto> createValidator,
-        IValidator<UserPreferenceForUpdateDto> updateValidator)
+        IUserPreferenceRepository repository,
+        IUserRepository userRepository,
+        ICityRepository cityRepository,
+        IMapper mapper)
     {
-        _preferenceRepository = preferenceRepository;
+        _repository = repository;
+        _userRepository = userRepository;
+        _cityRepository = cityRepository;
         _mapper = mapper;
-        _createValidator = createValidator;
-        _updateValidator = updateValidator;
+    }
+
+    public async Task<IEnumerable<UserPreferenceForResultDto>> GetAllAsync()
+    {
+        var preferences = await _repository.GetAllAsync();
+
+        return _mapper.Map<IEnumerable<UserPreferenceForResultDto>>(
+            preferences);
     }
 
     public async Task<UserPreferenceForResultDto?> GetByIdAsync(long id)
     {
-        var preference = await _preferenceRepository.GetByIdAsync(id);
+        var preference = await _repository.GetByIdAsync(id);
 
         return preference is null
             ? null
@@ -38,55 +45,68 @@ public class UserPreferenceService : IUserPreferenceService
 
     public async Task<UserPreferenceForResultDto?> GetByUserIdAsync(long userId)
     {
-        var preference = await _preferenceRepository.GetByUserIdAsync(userId);
+        var preference = await _repository.GetByUserIdAsync(userId);
 
         return preference is null
             ? null
             : _mapper.Map<UserPreferenceForResultDto>(preference);
     }
 
-    public async Task<IEnumerable<UserPreferenceForResultDto>> GetAllAsync()
-    {
-        var preferences = await _preferenceRepository.GetAllAsync();
-
-        return _mapper.Map<IEnumerable<UserPreferenceForResultDto>>(preferences);
-    }
-
     public async Task<UserPreferenceForResultDto> CreateAsync(
         UserPreferenceForCreateDto dto)
     {
-        await _createValidator.ValidateAndThrowAsync(dto);
+        var user = await _userRepository.GetByIdAsync(dto.UserId);
+
+        if (user is null)
+            throw new KeyNotFoundException("User not found.");
+
+        var city = await _cityRepository.GetByIdAsync(dto.CityId);
+
+        if (city is null)
+            throw new KeyNotFoundException("City not found.");
+
+        var existing = await _repository.GetByUserIdAsync(dto.UserId);
+
+        if (existing is not null)
+            throw new InvalidOperationException(
+                "User preference already exists.");
 
         var preference = _mapper.Map<UserPreference>(dto);
-        var createdPreference = await _preferenceRepository.CreateAsync(preference);
 
-        return _mapper.Map<UserPreferenceForResultDto>(createdPreference);
+        await _repository.CreateAsync(preference);
+
+        return _mapper.Map<UserPreferenceForResultDto>(preference);
     }
 
     public async Task<UserPreferenceForResultDto?> UpdateAsync(
         UserPreferenceForUpdateDto dto)
     {
-        await _updateValidator.ValidateAndThrowAsync(dto);
+        var preference = await _repository.GetByIdAsync(dto.Id);
 
-        var existingPreference = await _preferenceRepository.GetByIdAsync(dto.Id);
-
-        if (existingPreference is null)
+        if (preference is null)
             return null;
 
-        _mapper.Map(dto, existingPreference);
+        var city = await _cityRepository.GetByIdAsync(dto.CityId);
 
-        var updatedPreference = await _preferenceRepository.UpdateAsync(existingPreference);
+        if (city is null)
+            throw new KeyNotFoundException("City not found.");
 
-        return _mapper.Map<UserPreferenceForResultDto>(updatedPreference);
+        _mapper.Map(dto, preference);
+
+        await _repository.UpdateAsync(preference);
+
+        return _mapper.Map<UserPreferenceForResultDto>(preference);
     }
 
     public async Task<bool> DeleteAsync(long id)
     {
-        var preference = await _preferenceRepository.GetByIdAsync(id);
+        var preference = await _repository.GetByIdAsync(id);
 
         if (preference is null)
             return false;
 
-        return await _preferenceRepository.DeleteAsync(id);
+        await _repository.DeleteAsync(id);
+
+        return true;
     }
 }

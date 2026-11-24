@@ -35,6 +35,7 @@ public static class DependencyInjection
 
         // Telegram Authentication
         services.AddScoped<TelegramInitDataValidator>();
+        services.AddScoped<ITelegramAuthService, TelegramAuthService>();
 
         // AutoMapper
         services.AddAutoMapper(

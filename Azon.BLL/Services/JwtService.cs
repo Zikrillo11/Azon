@@ -1,4 +1,5 @@
-﻿using Azon.BLL.Interfaces;
+﻿
+using Azon.BLL.Interfaces;
 using Azon.Domain.Entities;
 using Azon.Shared.Settings;
 using Microsoft.Extensions.Options;
@@ -27,12 +28,23 @@ public sealed class JwtService : IJwtService
                 "JWT SecretKey must contain at least 32 UTF-8 bytes.");
         }
 
+        if (user is null)
+        {
+            throw new ArgumentNullException(nameof(user));
+        }
+
+        var now = DateTime.UtcNow;
+
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.FirstName),
+
+            new(ClaimTypes.Role, user.Role.ToString()),
+
             new("telegram_user_id", user.TelegramUserId.ToString()),
             new("language", user.LanguageCode)
         };
@@ -48,8 +60,8 @@ public sealed class JwtService : IJwtService
             issuer: _settings.Issuer,
             audience: _settings.Audience,
             claims: claims,
-            notBefore: DateTime.UtcNow,
-            expires: DateTime.UtcNow.AddMinutes(
+            notBefore: now,
+            expires: now.AddMinutes(
                 _settings.AccessTokenExpirationMinutes),
             signingCredentials: credentials);
 

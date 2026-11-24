@@ -23,13 +23,15 @@ public sealed class AuthController : ControllerBase
     [AllowAnonymous]
     [HttpPost("telegram")]
     [ProducesResponseType(typeof(AuthTokenResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> TelegramLogin(
         [FromBody] TelegramAuthRequestDto request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.InitData))
+        if (request is null ||
+            string.IsNullOrWhiteSpace(request.InitData))
         {
             return BadRequest(new
             {

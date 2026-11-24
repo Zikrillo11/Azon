@@ -4,90 +4,89 @@ using Azon.BLL.Interfaces;
 using Azon.DAL.Repositories.Interfaces;
 using Azon.Domain.Entities;
 using Azon.Shared.DTOs.NotificationLogDTOs;
-using FluentValidation;
 
 namespace Azon.BLL.Services;
 
-public class NotificationLogService : INotificationLogService
+public sealed class NotificationLogService : INotificationLogService
 {
-    private readonly INotificationLogRepository _notificationLogRepository;
+    private readonly INotificationLogRepository _repository;
+    private readonly IUserRepository _userRepository;
     private readonly IMapper _mapper;
-    private readonly IValidator<NotificationLogForCreateDto> _createValidator;
-    private readonly IValidator<NotificationLogForUpdateDto> _updateValidator;
 
     public NotificationLogService(
-        INotificationLogRepository notificationLogRepository,
-        IMapper mapper,
-        IValidator<NotificationLogForCreateDto> createValidator,
-        IValidator<NotificationLogForUpdateDto> updateValidator)
+        INotificationLogRepository repository,
+        IUserRepository userRepository,
+        IMapper mapper)
     {
-        _notificationLogRepository = notificationLogRepository;
+        _repository = repository;
+        _userRepository = userRepository;
         _mapper = mapper;
-        _createValidator = createValidator;
-        _updateValidator = updateValidator;
     }
 
     public async Task<NotificationLogForResultDto?> GetByIdAsync(long id)
     {
-        var notificationLog = await _notificationLogRepository.GetByIdAsync(id);
+        var log = await _repository.GetByIdAsync(id);
 
-        return notificationLog is null
+        return log is null
             ? null
-            : _mapper.Map<NotificationLogForResultDto>(notificationLog);
+            : _mapper.Map<NotificationLogForResultDto>(log);
     }
 
-    public async Task<IEnumerable<NotificationLogForResultDto>> GetByUserIdAsync(long userId)
+    public async Task<IEnumerable<NotificationLogForResultDto>> GetByUserIdAsync(
+        long userId)
     {
-        var notificationLogs = await _notificationLogRepository.GetByUserIdAsync(userId);
+        var logs = await _repository.GetByUserIdAsync(userId);
 
-        return _mapper.Map<IEnumerable<NotificationLogForResultDto>>(notificationLogs);
+        return _mapper.Map<IEnumerable<NotificationLogForResultDto>>(logs);
     }
 
     public async Task<IEnumerable<NotificationLogForShortResultDto>>
         GetPendingNotificationsAsync(DateOnly date)
     {
-        var notificationLogs = await _notificationLogRepository
-            .GetPendingNotificationsAsync(date);
+        var logs = await _repository.GetPendingNotificationsAsync(date);
 
-        return _mapper.Map<IEnumerable<NotificationLogForShortResultDto>>(
-            notificationLogs);
+        return _mapper.Map<IEnumerable<NotificationLogForShortResultDto>>(logs);
     }
 
     public async Task<NotificationLogForResultDto> CreateAsync(
         NotificationLogForCreateDto dto)
     {
-        await _createValidator.ValidateAndThrowAsync(dto);
+        var user = await _userRepository.GetByIdAsync(dto.UserId);
 
-        var notificationLog = _mapper.Map<NotificationLog>(dto);
-        var createdLog = await _notificationLogRepository.CreateAsync(notificationLog);
+        if (user is null)
+            throw new KeyNotFoundException("User not found.");
 
-        return _mapper.Map<NotificationLogForResultDto>(createdLog);
+        var log = _mapper.Map<NotificationLog>(dto);
+
+        await _repository.CreateAsync(log);
+
+        return _mapper.Map<NotificationLogForResultDto>(log);
     }
 
     public async Task<NotificationLogForResultDto?> UpdateAsync(
         NotificationLogForUpdateDto dto)
     {
-        await _updateValidator.ValidateAndThrowAsync(dto);
+        var log = await _repository.GetByIdAsync(dto.Id);
 
-        var existingLog = await _notificationLogRepository.GetByIdAsync(dto.Id);
-
-        if (existingLog is null)
+        if (log is null)
             return null;
 
-        _mapper.Map(dto, existingLog);
+        _mapper.Map(dto, log);
 
-        var updatedLog = await _notificationLogRepository.UpdateAsync(existingLog);
+        await _repository.UpdateAsync(log);
 
-        return _mapper.Map<NotificationLogForResultDto>(updatedLog);
+        return _mapper.Map<NotificationLogForResultDto>(log);
     }
 
     public async Task<bool> DeleteAsync(long id)
     {
-        var notificationLog = await _notificationLogRepository.GetByIdAsync(id);
+        var log = await _repository.GetByIdAsync(id);
 
-        if (notificationLog is null)
+        if (log is null)
             return false;
 
-        return await _notificationLogRepository.DeleteAsync(id);
+        await _repository.DeleteAsync(id);
+
+        return true;
     }
 }
