@@ -1,5 +1,7 @@
-﻿using Azon.BLL.Interfaces;
+﻿
+using Azon.BLL.Interfaces;
 using Azon.Shared.DTOs.MosqueDTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Azon.API.Controllers;
@@ -15,6 +17,8 @@ public class MosquesController : ControllerBase
         _mosqueService = mosqueService;
     }
 
+    // Ommaviy GET endpointlar
+    [AllowAnonymous]
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
@@ -22,6 +26,7 @@ public class MosquesController : ControllerBase
         return Ok(mosques);
     }
 
+    [AllowAnonymous]
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
@@ -33,6 +38,7 @@ public class MosquesController : ControllerBase
         return Ok(mosque);
     }
 
+    [AllowAnonymous]
     [HttpGet("city/{cityId:long}")]
     public async Task<IActionResult> GetByCityId(long cityId)
     {
@@ -40,15 +46,21 @@ public class MosquesController : ControllerBase
         return Ok(mosques);
     }
 
+    // Faqat Admin masjid qo‘sha oladi.
+    [Authorize(Roles = "Admin")]
     [HttpPost]
-    public async Task<IActionResult> Create(MosqueForCreateDto dto)
+    public async Task<IActionResult> Create(
+        [FromBody] MosqueForCreateDto dto)
     {
         var mosque = await _mosqueService.CreateAsync(dto);
         return Ok(mosque);
     }
 
+    // Faqat Admin masjid ma'lumotlarini yangilaydi.
+    [Authorize(Roles = "Admin")]
     [HttpPut]
-    public async Task<IActionResult> Update(MosqueForUpdateDto dto)
+    public async Task<IActionResult> Update(
+        [FromBody] MosqueForUpdateDto dto)
     {
         var mosque = await _mosqueService.UpdateAsync(dto);
 
@@ -58,6 +70,8 @@ public class MosquesController : ControllerBase
         return Ok(mosque);
     }
 
+    // Faqat Admin masjidni o‘chira oladi.
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id)
     {

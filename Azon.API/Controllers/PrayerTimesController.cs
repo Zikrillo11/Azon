@@ -1,5 +1,7 @@
-﻿using Azon.BLL.Interfaces;
+﻿
+using Azon.BLL.Interfaces;
 using Azon.Shared.DTOs.PrayerTimeDTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Azon.API.Controllers;
@@ -15,6 +17,8 @@ public class PrayerTimesController : ControllerBase
         _prayerTimeService = prayerTimeService;
     }
 
+    // Ommaviy GET endpointlar
+    [AllowAnonymous]
     [HttpGet("{id:long}")]
     public async Task<IActionResult> GetById(long id)
     {
@@ -26,6 +30,7 @@ public class PrayerTimesController : ControllerBase
         return Ok(prayerTime);
     }
 
+    [AllowAnonymous]
     [HttpGet("city/{cityId:long}")]
     public async Task<IActionResult> GetByCityId(long cityId)
     {
@@ -33,6 +38,7 @@ public class PrayerTimesController : ControllerBase
         return Ok(prayerTimes);
     }
 
+    [AllowAnonymous]
     [HttpGet("city/{cityId:long}/date/{date}")]
     public async Task<IActionResult> GetByCityAndDate(
         long cityId,
@@ -47,15 +53,21 @@ public class PrayerTimesController : ControllerBase
         return Ok(prayerTime);
     }
 
+    // Faqat Admin namoz vaqtini qo‘sha oladi.
+    [Authorize(Roles = "Admin")]
     [HttpPost]
-    public async Task<IActionResult> Create(PrayerTimeForCreateDto dto)
+    public async Task<IActionResult> Create(
+        [FromBody] PrayerTimeForCreateDto dto)
     {
         var prayerTime = await _prayerTimeService.CreateAsync(dto);
         return Ok(prayerTime);
     }
 
+    // Faqat Admin namoz vaqtini yangilaydi.
+    [Authorize(Roles = "Admin")]
     [HttpPut]
-    public async Task<IActionResult> Update(PrayerTimeForUpdateDto dto)
+    public async Task<IActionResult> Update(
+        [FromBody] PrayerTimeForUpdateDto dto)
     {
         var prayerTime = await _prayerTimeService.UpdateAsync(dto);
 
@@ -65,6 +77,8 @@ public class PrayerTimesController : ControllerBase
         return Ok(prayerTime);
     }
 
+    // Faqat Admin namoz vaqtini o‘chira oladi.
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id:long}")]
     public async Task<IActionResult> Delete(long id)
     {

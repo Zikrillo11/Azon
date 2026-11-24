@@ -262,6 +262,9 @@ namespace Azon.DAL.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
                     b.Property<long>("TelegramUserId")
                         .HasColumnType("bigint");
 

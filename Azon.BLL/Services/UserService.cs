@@ -3,6 +3,7 @@ using AutoMapper;
 using Azon.BLL.Interfaces;
 using Azon.DAL.Repositories.Interfaces;
 using Azon.Domain.Entities;
+using Azon.Domain.Enums;
 using Azon.Shared.DTOs.UserDTOs;
 using FluentValidation;
 
@@ -36,9 +37,11 @@ public class UserService : IUserService
             : _mapper.Map<UserForResultDto>(user);
     }
 
-    public async Task<UserForResultDto?> GetByTelegramUserIdAsync(long telegramUserId)
+    public async Task<UserForResultDto?> GetByTelegramUserIdAsync(
+        long telegramUserId)
     {
-        var user = await _userRepository.GetByTelegramUserIdAsync(telegramUserId);
+        var user = await _userRepository
+            .GetByTelegramUserIdAsync(telegramUserId);
 
         return user is null
             ? null
@@ -52,7 +55,8 @@ public class UserService : IUserService
         return _mapper.Map<IEnumerable<UserForResultDto>>(users);
     }
 
-    public async Task<UserForResultDto> CreateAsync(UserForCreateDto dto)
+    public async Task<UserForResultDto> CreateAsync(
+        UserForCreateDto dto)
     {
         await _createValidator.ValidateAndThrowAsync(dto);
 
@@ -65,12 +69,16 @@ public class UserService : IUserService
 
         var user = _mapper.Map<User>(dto);
 
+        // Yangi foydalanuvchi hech qachon Admin bo‘lib yaratilmaydi.
+        user.Role = UserRole.User;
+
         var createdUser = await _userRepository.CreateAsync(user);
 
         return _mapper.Map<UserForResultDto>(createdUser);
     }
 
-    public async Task<UserForResultDto?> UpdateAsync(UserForUpdateDto dto)
+    public async Task<UserForResultDto?> UpdateAsync(
+        UserForUpdateDto dto)
     {
         await _updateValidator.ValidateAndThrowAsync(dto);
 
@@ -79,7 +87,14 @@ public class UserService : IUserService
         if (existingUser is null)
             return null;
 
+        var originalRole = existingUser.Role;
+        var originalTelegramId = existingUser.TelegramUserId;
+
         _mapper.Map(dto, existingUser);
+
+        // DTO orqali Role yoki Telegram ID almashtirilmaydi.
+        existingUser.Role = originalRole;
+        existingUser.TelegramUserId = originalTelegramId;
 
         var updatedUser = await _userRepository.UpdateAsync(existingUser);
 

@@ -1,11 +1,14 @@
-﻿using Azon.BLL.Interfaces;
+﻿
+using Azon.BLL.Interfaces;
 using Azon.Shared.DTOs.UserDTOs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Azon.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
@@ -34,9 +37,11 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet("telegram/{telegramUserId:long}")]
-    public async Task<IActionResult> GetByTelegramUserId(long telegramUserId)
+    public async Task<IActionResult> GetByTelegramUserId(
+        long telegramUserId)
     {
-        var user = await _userService.GetByTelegramUserIdAsync(telegramUserId);
+        var user = await _userService
+            .GetByTelegramUserIdAsync(telegramUserId);
 
         if (user is null)
             return NotFound();
@@ -45,14 +50,16 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(UserForCreateDto dto)
+    public async Task<IActionResult> Create(
+        [FromBody] UserForCreateDto dto)
     {
         var user = await _userService.CreateAsync(dto);
         return Ok(user);
     }
 
     [HttpPut]
-    public async Task<IActionResult> Update(UserForUpdateDto dto)
+    public async Task<IActionResult> Update(
+        [FromBody] UserForUpdateDto dto)
     {
         var user = await _userService.UpdateAsync(dto);
 

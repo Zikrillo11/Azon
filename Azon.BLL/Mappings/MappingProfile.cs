@@ -88,5 +88,20 @@ public class MappingProfile : Profile
         CreateMap<NotificationLog, NotificationLogForShortResultDto>()
             .ForMember(dest => dest.NotificationStatus,
                 opt => opt.MapFrom(src => src.Status));
+
+
+        CreateMap<UserForCreateDto, User>()
+            .ForMember(dest => dest.Role, opt => opt.Ignore())
+            .ForMember(dest => dest.IsActive, opt => opt.Ignore())
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.Preference, opt => opt.Ignore())
+            .ForMember(dest => dest.NotificationLogs, opt => opt.Ignore());
+
+        CreateMap<UserForUpdateDto, User>()
+            .ForMember(dest => dest.TelegramUserId, opt => opt.Ignore())
+            .ForMember(dest => dest.Role, opt => opt.Ignore())
+            .ForMember(dest => dest.Preference, opt => opt.Ignore())
+            .ForMember(dest => dest.NotificationLogs, opt => opt.Ignore());
+
     }
 }
