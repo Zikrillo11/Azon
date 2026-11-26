@@ -1,16 +1,16 @@
 
-using System.Security.Claims;
-using System.Text;
-using System.Threading.RateLimiting;
-
 using Azon.BLL;
+using Azon.BLL.Interfaces;
+using Azon.BLL.Services;
 using Azon.DAL.DAL;
 using Azon.Shared.Settings;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -147,6 +147,14 @@ builder.Services.AddRateLimiter(options =>
 // ========================================
 
 builder.Services.AddBusinessLogic();
+
+
+builder.Services.AddHttpClient<
+    ITelegramMessageSender,
+    TelegramMessageSender>(client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(15);
+    });
 
 // ========================================
 // API + SWAGGER

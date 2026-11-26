@@ -1,6 +1,8 @@
 ﻿
 using Azon.BLL.Interfaces;
 using Azon.DAL.Repositories.Interfaces;
+using Azon.Domain.Entities;
+using Azon.Domain.Enums;
 using Azon.Shared.DTOs.AuthDTOs;
 using Azon.Shared.Settings;
 using Microsoft.Extensions.Options;
@@ -30,25 +32,56 @@ public sealed class TelegramAuthService : ITelegramAuthService
         string initData,
         CancellationToken cancellationToken = default)
     {
-        if (!_validator.TryValidate(initData, out var telegramUserId))
+        if (!_validator.TryValidate(
+                initData, out var telegramUser) ||
+            telegramUser is null)
         {
             throw new UnauthorizedAccessException(
                 "Invalid Telegram authentication data.");
         }
 
         var user = await _userRepository
-            .GetByTelegramUserIdAsync(telegramUserId);
+            .GetByTelegramUserIdAsync(telegramUser.Id);
 
         if (user is null)
         {
-            throw new UnauthorizedAccessException(
-                "User is not registered.");
-        }
+            user = new User
+            {
+                TelegramUserId = telegramUser.Id,
+                TelegramUsername = telegramUser.Username,
+                FirstName = telegramUser.FirstName,
+                LastName = telegramUser.LastName,
+                LanguageCode = string.IsNullOrWhiteSpace(
+                    telegramUser.LanguageCode)
+                    ? "uz"
+                    : telegramUser.LanguageCode,
+                IsActive = true,
+                Role = UserRole.User,
+                LastActivityAtUtc = DateTime.UtcNow
+            };
 
-        if (!user.IsActive)
+            await _userRepository.CreateAsync(user);
+        }
+        else
         {
-            throw new UnauthorizedAccessException(
-                "User account is inactive.");
+            if (!user.IsActive)
+            {
+                throw new UnauthorizedAccessException(
+                    "User account is inactive.");
+            }
+
+            user.TelegramUsername = telegramUser.Username;
+            user.FirstName = telegramUser.FirstName;
+            user.LastName = telegramUser.LastName;
+
+            user.LanguageCode = string.IsNullOrWhiteSpace(
+                telegramUser.LanguageCode)
+                ? user.LanguageCode
+                : telegramUser.LanguageCode;
+
+            user.LastActivityAtUtc = DateTime.UtcNow;
+
+            await _userRepository.UpdateAsync(user);
         }
 
         var accessToken = _jwtService.GenerateAccessToken(user);
