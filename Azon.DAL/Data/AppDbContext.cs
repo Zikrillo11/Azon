@@ -23,5 +23,9 @@ public sealed class AppDbContext : DbContext
 
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(AppDbContext).Assembly);
+
+        modelBuilder.Entity<User>()
+    .HasIndex(u => u.TelegramUserId)
+    .IsUnique();
     }
 }

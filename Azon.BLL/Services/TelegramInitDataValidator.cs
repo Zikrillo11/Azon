@@ -1,13 +1,20 @@
 ﻿
+using Azon.Shared.Settings;
+using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Azon.Shared.Settings;
-using Microsoft.Extensions.Options;
 
 namespace Azon.BLL.Services;
+
+public sealed record TelegramUserData(
+    long Id,
+    string FirstName,
+    string? LastName,
+    string? Username,
+    string? LanguageCode);
 
 public sealed class TelegramInitDataValidator
 {
@@ -21,138 +28,129 @@ public sealed class TelegramInitDataValidator
 
     public bool TryValidate(
         string initData,
-        out long telegramUserId)
+        out TelegramUserData? telegramUser)
     {
-        telegramUserId = 0;
+        telegramUser = null;
 
         if (string.IsNullOrWhiteSpace(initData) ||
-            string.IsNullOrWhiteSpace(_settings.BotToken) ||
-            _settings.InitDataExpirationSeconds <= 0 ||
-            initData.Length > 10_000)
-        {
+            string.IsNullOrWhiteSpace(_settings.BotToken))
             return false;
-        }
 
-        var values = new SortedDictionary<string, string>(
-            StringComparer.Ordinal);
-
-        string? receivedHash = null;
-
-        foreach (var item in initData.Split('&'))
+        try
         {
-            var separatorIndex = item.IndexOf('=');
+            var values = new SortedDictionary<string, string>(
+                StringComparer.Ordinal);
 
-            if (separatorIndex <= 0)
-                return false;
-
-            var key = WebUtility.UrlDecode(
-                item[..separatorIndex]);
-
-            var value = WebUtility.UrlDecode(
-                item[(separatorIndex + 1)..]);
-
-            if (string.IsNullOrWhiteSpace(key))
-                return false;
-
-            if (key == "hash")
+            foreach (var item in initData.Split('&'))
             {
-                if (receivedHash is not null)
+                var separator = item.IndexOf('=');
+
+                if (separator <= 0)
                     return false;
 
-                receivedHash = value;
-                continue;
+                var key = WebUtility.UrlDecode(
+                    item[..separator]);
+
+                var value = WebUtility.UrlDecode(
+                    item[(separator + 1)..]);
+
+                if (string.IsNullOrWhiteSpace(key) ||
+                    !values.TryAdd(key, value))
+                    return false;
             }
 
-            if (!values.TryAdd(key, value))
+            if (!values.TryGetValue("hash", out var receivedHash) ||
+                receivedHash.Length != 64 ||
+                !values.TryGetValue("auth_date", out var authDateText) ||
+                !values.TryGetValue("user", out var userJson))
                 return false;
-        }
 
-        if (string.IsNullOrWhiteSpace(receivedHash) ||
-            receivedHash.Length != 64 ||
-            !receivedHash.All(Uri.IsHexDigit))
-        {
-            return false;
-        }
+            var dataCheckString = string.Join(
+                "\n",
+                values
+                    .Where(x => x.Key != "hash")
+                    .Select(x => $"{x.Key}={x.Value}"));
 
-        if (!values.TryGetValue(
-                "auth_date", out var authDateValue) ||
-            !long.TryParse(
-                authDateValue,
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out var authDate))
-        {
-            return false;
-        }
+            var secretKey = HMACSHA256.HashData(
+                Encoding.UTF8.GetBytes(_settings.BotToken),
+                Encoding.UTF8.GetBytes("WebAppData"));
 
-        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var calculatedHash = HMACSHA256.HashData(
+                secretKey,
+                Encoding.UTF8.GetBytes(dataCheckString));
 
-        if (authDate <= 0 ||
-            authDate > now + 30 ||
-            now - authDate > _settings.InitDataExpirationSeconds)
-        {
-            return false;
-        }
+            var receivedHashBytes =
+                Convert.FromHexString(receivedHash);
 
-        // Telegram data-check-string
-        var dataCheckString = string.Join(
-            "\n",
-            values.Select(x => $"{x.Key}={x.Value}"));
-
-        // Telegram official HMAC-SHA256 algorithm
-        var secretKey = HMACSHA256.HashData(
-            Encoding.UTF8.GetBytes(_settings.BotToken),
-            Encoding.UTF8.GetBytes("WebAppData"));
-
-        var calculatedHash = HMACSHA256.HashData(
-            secretKey,
-            Encoding.UTF8.GetBytes(dataCheckString));
-
-        byte[] providedHash;
-
-        try
-        {
-            providedHash = Convert.FromHexString(receivedHash);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-
-        if (!CryptographicOperations.FixedTimeEquals(
-                calculatedHash,
-                providedHash))
-        {
-            return false;
-        }
-
-        // Parse user only after successful signature validation.
-        if (!values.TryGetValue("user", out var userJson))
-            return false;
-
-        try
-        {
-            using var document =
-                JsonDocument.Parse(userJson);
-
-            if (!document.RootElement.TryGetProperty(
-                    "id", out var idElement))
-            {
+            if (!CryptographicOperations.FixedTimeEquals(
+                    calculatedHash,
+                    receivedHashBytes))
                 return false;
-            }
 
-            if (!idElement.TryGetInt64(out telegramUserId) ||
-                telegramUserId <= 0)
-            {
-                telegramUserId = 0;
+            if (!long.TryParse(
+                    authDateText,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out var authTimestamp))
                 return false;
-            }
+
+            var authDate = DateTimeOffset.FromUnixTimeSeconds(
+                authTimestamp);
+
+            var now = DateTimeOffset.UtcNow;
+
+            if (authDate > now.AddSeconds(30))
+                return false;
+
+            if ((now - authDate).TotalSeconds >
+                _settings.InitDataExpirationSeconds)
+                return false;
+
+            using var document = JsonDocument.Parse(userJson);
+
+            var root = document.RootElement;
+
+            if (!root.TryGetProperty("id", out var idElement) ||
+                !idElement.TryGetInt64(out var telegramId) ||
+                telegramId <= 0)
+                return false;
+
+            if (!root.TryGetProperty(
+                    "first_name", out var firstNameElement))
+                return false;
+
+            var firstName = firstNameElement.GetString();
+
+            if (string.IsNullOrWhiteSpace(firstName))
+                return false;
+
+            var lastName = root.TryGetProperty(
+                "last_name", out var lastNameElement)
+                ? lastNameElement.GetString()
+                : null;
+
+            var username = root.TryGetProperty(
+                "username", out var usernameElement)
+                ? usernameElement.GetString()
+                : null;
+
+            var languageCode = root.TryGetProperty(
+                "language_code", out var languageElement)
+                ? languageElement.GetString()
+                : null;
+
+            telegramUser = new TelegramUserData(
+                telegramId,
+                firstName,
+                lastName,
+                username,
+                languageCode);
 
             return true;
         }
-        catch (JsonException)
+        catch
         {
-            telegramUserId = 0;
+            telegramUser = null;
             return false;
         }
     }
